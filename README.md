@@ -1,187 +1,206 @@
-# Email OAuth Aggregator + Thin Mail Backend
+# 🚀 Pankh Server
 
-Production-oriented NestJS + Fastify backend for:
+Backend service for the **Pankh Mail Platform** — a scalable, production-ready email infrastructure inspired by Gmail.
 
-- OAuth login and token lifecycle for Gmail, Microsoft, Yahoo, and Apple identity
-- Encrypted refresh-token storage on the backend only
-- JWT session issuance to the Flutter client
-- Short-lived token brokering for direct client-side mailbox access
-- Backend mail sending through Gmail API and Microsoft Graph
+---
 
-This service is intentionally not a full mail server. It does not fetch, store, or index user mail.
+## 🧩 Tech Stack
 
-## Stack
+* Node.js (NestJS or Express)
+* SMTP / IMAP integration
+* OAuth2 (Google, Microsoft, etc.)
+* REST APIs
+* Nginx (reverse proxy)
+* Docker (optional)
+* Oracle Cloud / VPS deployment
 
-- NestJS 11
-- Fastify
-- MongoDB for users and OAuth tokens
-- Redis optional for future caching/rate-limit storage
-- AES-256-GCM refresh-token encryption
-- JWT session tokens
+---
 
-## Folder Structure
+## 📁 Project Structure
 
-```text
-src/
-  common/
-    constants/
-    decorators/
-    guards/
-    interfaces/
-    strategies/
-  config/
-  database/
-    schemas/
-  modules/
-    app/
-    auth/
-      dto/
-      interfaces/
-      providers/
-      services/
-    mail/
-      dto/
-      services/
-    token/
-      dto/
+```
+pankh-server/
+│
+├── src/
+│   ├── auth/          # OAuth + authentication logic
+│   ├── mail/          # SMTP/IMAP handling
+│   ├── users/         # User management
+│   ├── common/        # Shared utilities
+│   └── main.ts        # Entry point
+│
+├── .env               # Environment variables
+├── package.json
+├── docker-compose.yml (optional)
+└── README.md
 ```
 
-## Environment
+---
 
-Copy from [.env.example](/Users/na/Documents/flutter/projects/mail server/.env.example).
+## ⚙️ Environment Variables
 
-Important values:
+Create a `.env` file in the root directory:
 
-- `TOKEN_ENCRYPTION_KEY` must be a base64-encoded 32-byte key
-- `FRONTEND_REDIRECT_URI` must match the Flutter deep link or HTTPS callback exactly
-- Each provider redirect URI must exactly match the value registered with that provider
+```
+PORT=3000
 
-Generate a 32-byte encryption key:
+# OAuth
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=
+
+MICROSOFT_CLIENT_ID=
+MICROSOFT_CLIENT_SECRET=
+MICROSOFT_REDIRECT_URI=
+
+# JWT
+JWT_SECRET=
+
+# Mail (if using SMTP directly)
+SMTP_HOST=
+SMTP_PORT=
+SMTP_USER=
+SMTP_PASS=
+```
+
+---
+
+## 🛠️ Setup & Run Locally
 
 ```bash
-openssl rand -base64 32
+# Install dependencies
+npm install
+
+# Run in development
+npm run start:dev
+
+# Build for production
+npm run build
+
+# Run production build
+npm run start:prod
 ```
 
-## Endpoints
+---
 
-### Start OAuth
+## 🌐 API Endpoints (Example)
 
-`GET /api/auth/:provider`
+### Auth
 
-Example:
+* `POST /auth/google`
+* `POST /auth/microsoft`
+* `GET /auth/callback`
+
+### Mail
+
+* `GET /mail/inbox`
+* `POST /mail/send`
+* `GET /mail/:id`
+* `DELETE /mail/:id`
+
+### User
+
+* `GET /user/profile`
+
+---
+
+## 🔐 OAuth Flow
+
+1. Client calls `/auth/google`
+2. User is redirected to provider consent screen
+3. Provider redirects back to `/auth/callback`
+4. Server exchanges code for tokens
+5. Tokens stored securely and used for IMAP/SMTP access
+
+---
+
+## 🚀 Deployment
+
+### Build project
 
 ```bash
-curl http://localhost:3000/api/auth/google
+npm run build
 ```
 
-Response:
+### Run with PM2
 
-```json
-{
-  "provider": "google",
-  "authUrl": "https://accounts.google.com/o/oauth2/v2/auth?..."
+```bash
+npm install -g pm2
+pm2 start dist/main.js --name pankh-server
+```
+
+---
+
+## 🌍 Nginx Configuration
+
+```
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
 }
 ```
 
-### OAuth Callback
+---
 
-`GET /api/auth/:provider/callback`
-
-The backend exchanges the code, stores tokens, issues a JWT, and redirects to the configured frontend callback:
-
-```text
-myapp://oauth/callback?token=...&provider=google&email=user@example.com
-```
-
-### Broker Access Token
-
-`GET /api/token/:provider`
-
-Client sends its JWT and receives a short-lived provider access token. Refresh tokens never leave the backend.
+## 🔒 Enable HTTPS
 
 ```bash
-curl http://localhost:3000/api/token/google \
-  -H "Authorization: Bearer APP_SESSION_JWT"
+sudo apt update
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx
 ```
 
-### Send Email
+---
 
-`POST /api/send-email`
+## 🐳 Docker (Optional)
 
 ```bash
-curl http://localhost:3000/api/send-email \
-  -H "Authorization: Bearer APP_SESSION_JWT" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "provider": "microsoft",
-    "to": ["alice@example.com"],
-    "subject": "Hello",
-    "text": "Thin backend test"
-  }'
+docker-compose up --build
 ```
 
-## Provider Notes
+---
 
-### Google
+## 📈 Scaling Strategy
 
-- OAuth scopes: `gmail.readonly`, `gmail.send`
-- Sending uses Gmail API
-- Client can fetch mail with Gmail API or IMAP XOAUTH2
+* Stateless backend (horizontal scaling ready)
+* Use Redis for caching & sessions
+* Add queues (BullMQ / RabbitMQ) for async mail processing
+* Move to microservices as user base grows
 
-### Microsoft
+---
 
-- OAuth scopes: `Mail.Read`, `Mail.Send`
-- Sending uses Microsoft Graph `sendMail`
-- Client fetches mail and folders directly from Microsoft Graph
+## 🧪 Testing
 
-### Yahoo
-
-- OAuth scopes and token exchange are implemented
-- Client fetches via IMAP using the brokered access token
-- Backend send proxy is intentionally not enabled here because Yahoo OAuth SMTP support varies by tenant/account setup
-
-### Apple
-
-- Sign in with Apple is treated as identity-only
-- General iCloud Mail API access is not available
-- Recommended fallback: iCloud IMAP/SMTP with an app-specific password, managed entirely client-side
-
-## IMAP XOAUTH2 String Format
-
-The client should build the SASL XOAUTH2 string as:
-
-```text
-base64("user=<email>\x01auth=Bearer <access_token>\x01\x01")
+```bash
+npm run test
 ```
 
-Example pre-base64 payload:
+---
 
-```text
-user=user@example.com^Aauth=Bearer ya29.a0Af...^A^A
-```
+## 🧠 Future Improvements
 
-`^A` represents `\x01`.
+* Push notifications for new emails
+* Email threading
+* Spam filtering
+* Attachment storage (S3 / GCP)
+* Rate limiting & abuse protection
 
-## Security Design
+---
 
-- Refresh tokens are AES-256-GCM encrypted before persistence
-- Refresh tokens are never returned by any API
-- Session JWTs are app-scoped and separate from provider tokens
-- OAuth state is HMAC-signed and short-lived
-- Redirect URIs are read from explicit environment variables, not user input
-- Send endpoint is JWT-protected and rate-limited
-- Client should store the app JWT and brokered access tokens in Keychain/Keystore
+## 🤝 Contribution
 
-## PostgreSQL Schema Reference
+Pull requests are welcome!
 
-The runtime implementation in this repository uses MongoDB because the requirements specify MongoDB for token persistence. If you need a PostgreSQL equivalent schema for analytics or a future migration, use [docs/postgres-schema.sql](/Users/na/Documents/flutter/projects/mail server/docs/postgres-schema.sql).
+---
 
-## Client Flow
+## 📜 License
 
-1. Flutter calls `GET /api/auth/:provider`
-2. User completes provider login in a browser/webview
-3. Provider redirects to backend callback
-4. Backend stores encrypted refresh token and redirects to Flutter with app JWT
-5. Flutter stores the JWT in Keychain/Keystore
-6. Flutter calls `GET /api/token/:provider` when it needs a fresh provider access token
-7. Flutter fetches mail/folders directly from Gmail API, Graph API, or IMAP
+MIT
