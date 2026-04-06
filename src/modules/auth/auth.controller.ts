@@ -1,8 +1,10 @@
 import {
+  Body,
   BadRequestException,
   Controller,
   Get,
   NotFoundException,
+  Post,
   Param,
   Query,
   Redirect,
@@ -12,12 +14,28 @@ import {
   SUPPORTED_PROVIDERS,
 } from '../../common/constants/mail-provider.constants';
 import { AuthUrlDto } from './dto/auth-url.dto';
+import { CacheEmailConfigDto } from './dto/cache-email-config.dto';
+import { EmailConfigLookupDto } from './dto/email-config-lookup.dto';
 import { OAuthCallbackDto } from './dto/oauth-callback.dto';
 import { AuthService } from './services/auth.service';
+import { EmailConfigLookupService } from './services/email-config-lookup.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly emailConfigLookupService: EmailConfigLookupService,
+  ) {}
+
+  @Get('email-config/lookup')
+  lookupEmailConfig(@Query() query: EmailConfigLookupDto) {
+    return this.emailConfigLookupService.lookup(query.email);
+  }
+
+  @Post('email-config/cache')
+  cacheEmailConfig(@Body() body: CacheEmailConfigDto) {
+    return this.emailConfigLookupService.cacheManualConfig(body);
+  }
 
   @Get(':provider')
   getAuthUrl(

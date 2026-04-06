@@ -6,6 +6,10 @@ import { PassportModule } from '@nestjs/passport';
 import { ThrottlerModule } from '@nestjs/throttler';
 import configuration from '../../config/configuration';
 import { validateEnvironment } from '../../config/env.validation';
+import {
+  EmailServerConfig,
+  EmailServerConfigSchema,
+} from '../../database/schemas/email-server-config.schema';
 import { OauthAccount, OauthAccountSchema } from '../../database/schemas/oauth-account.schema';
 import { User, UserSchema } from '../../database/schemas/user.schema';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -17,6 +21,7 @@ import { MicrosoftProvider } from '../auth/providers/microsoft.provider';
 import { YahooProvider } from '../auth/providers/yahoo.provider';
 import { AccountService } from '../auth/services/account.service';
 import { AuthService } from '../auth/services/auth.service';
+import { EmailConfigLookupService } from '../auth/services/email-config-lookup.service';
 import { CryptoService } from '../auth/services/crypto.service';
 import { OAuthStateService } from '../auth/services/oauth-state.service';
 import { ProviderRegistryService } from '../auth/services/provider-registry.service';
@@ -44,6 +49,7 @@ import { TokenService } from '../token/token.service';
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: OauthAccount.name, schema: OauthAccountSchema },
+      { name: EmailServerConfig.name, schema: EmailServerConfigSchema },
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
@@ -68,6 +74,7 @@ import { TokenService } from '../token/token.service';
     SessionService,
     AccountService,
     AuthService,
+    EmailConfigLookupService,
     TokenService,
     SendMailService,
     MailFetchService,
