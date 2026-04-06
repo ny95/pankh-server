@@ -1,40 +1,41 @@
-name: Deploy Backend
+name: Deploy Server
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4   # keep v4 (already latest stable)
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20   # your app runtime (can stay 18/20/22)
 
-      - run: |
-          npm install
-          npm run build
+      - name: Install dependencies
+        run: npm install
 
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/key
-          chmod 600 ~/.ssh/key
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+      - name: Build
+        run: npm run build
 
-      - name: Deploy Backend
-        run: |
-          rsync -avz -e "ssh -i ~/.ssh/key" \
-          ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/ubuntu/pankh/SERVER/
-
-      - name: Restart API
-        run: |
-          ssh -i ~/.ssh/key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
             cd /home/ubuntu/pankh/SERVER
-            npm install --production
+            git pull origin main
+            npm install
+            npm run build
             pm2 restart pankh-api || pm2 start dist/main.js --name pankh-api
-          EOF
